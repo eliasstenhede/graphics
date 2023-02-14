@@ -4,7 +4,7 @@
 #include <complex.h>
 
 #define WIDTH 400
-#define DELAY 5000
+#define DELAY 10000
 
 #define DEGREE 3
 #define PI 3.14159265358
@@ -81,13 +81,15 @@ char* create_pixel_matrix() {
 
 char* conv_attr_to_pixel_matrix(char* convergences, char* attractors) {
     // Allocate memory for the matrix
-    char* matrix = calloc(WIDTH * WIDTH * 4, sizeof(char));
+    char* matrix = calloc(WIDTH*WIDTH*4, sizeof(char));
     // Initialize the pixels
+    int i;
     for (int y = 0; y < WIDTH; y++) {
         for (int x = 0; x < WIDTH; x++) {
-            int i = (y * WIDTH + x)*4;
-	    matrix[i] = attractors[i]*5;  // red
-	    //matrix[i+3] = 255;  // alpha
+            i = (y*WIDTH + x)*4;
+	    matrix[i  ] = convergences[i]*5;  // red
+	    //matrix[i+1] = convergences[i]*5;  // red
+	    matrix[i+3] = convergences[i]*5;  	    // alpha
         }
     }
     return matrix;
@@ -135,11 +137,59 @@ void calculate(float* x0s, complex float* roots, char* convergences, char* attra
     }
 }
 
+Uint32 get_color(SDL_Surface* surface, int conv, int attr) {
+    // Calculate the color based on the inputs
+    int r, g, b;
+    switch(attr) {
+        case 1:
+	    r=255;
+	    g=0;
+	    b=0;
+        case 2:
+	    r=0;
+	    g=255;
+	    b=0;
+        case 3:
+	    r=0;
+	    g=0;
+	    b=255;
+        case 4:
+	    r=255;
+	    g=0;
+	    b=0;
+        case 5:
+	    r=255;
+	    g=0;
+	    b=0;
+        case 6:
+	    r=255;
+	    g=0;
+	    b=0;
+        case 7:
+	    r=255;
+	    g=0;
+	    b=0;
+        case 8:
+	    r=255;
+	    g=0;
+	    b=0;
+        case 9:
+	    r=255;
+	    g=0;
+	    b=0;
+        default:
+            printf("invalid degree");
+            //exit(1);
+    }
 
+    // Create an SDL color value from the RGB values
+    Uint32 pixel = SDL_MapRGB(surface->format, r*(conv+1)/50, g*(conv+1)/50, b*(conv+1)/50);
+    return pixel;
+}
 
 int main (int argc, char** argv) {
-    char* attractors = malloc(WIDTH*WIDTH*sizeof(char));
-    char* convergences = malloc(WIDTH*WIDTH*sizeof(char));
+    char* attractors = calloc(WIDTH*WIDTH, sizeof(char));
+    char* convergences = calloc(WIDTH*WIDTH, sizeof(char));
 
     float* x0s = malloc(WIDTH*sizeof(float)); // construct x0 matrix 
     float jx = -2.f + 2.f / (float) WIDTH;
@@ -176,30 +226,34 @@ int main (int argc, char** argv) {
     renderer =  SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED);
 
     // Set render color to red ( background will be rendered in this color )
-    SDL_SetRenderDrawColor( renderer, 0, 255, 0, 255 );
+    SDL_SetRenderDrawColor( renderer, 255, 255, 255, 255 );
 
     // Clear winow
     SDL_RenderClear( renderer );
 
-    // Create surface
-    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
-		    mat,            // Pointer to the pixel data buffer
-		    WIDTH,          // Width of the image
-		    WIDTH,          // Height of the image
-		    32,             // Number of bits used to represent each pixel
-		    4*WIDTH,        // Number of bytes used to represent each row of pixels
-		    0xff000000,     // Red mask (in this case, the most significant byte)
-		    0x00ff0000,     // Green mask (in this case, the second most significant byte)
-		    0x0000ff00,     // Blue mask (in this case, the third most significant byte)
-		    0x000000ff      // Alpha mask (in this case, the least significant byte)
-			);
+    SDL_Surface* surface = SDL_CreateRGBSurface(0, WIDTH, WIDTH, 32, 0, 0, 0, 0);
+
+    SDL_LockSurface(surface);
+    for (int y = 0; y < WIDTH; y++) {
+	for (int x = 0; x < WIDTH; x++) {
+	    // Get the value from the "convergences" matrix
+	    int conv = convergences[y * WIDTH + x];
+	    int attr = attractors[y * WIDTH + x];
+
+            // Set the pixel color based on the value
+	    //Uint32 pixel = SDL_MapRGB(surface->format, value * 5, value * 5, value * 5);
+	    Uint32 pixel = get_color(surface, conv, attr);
+	    ((Uint32*)surface->pixels)[y * WIDTH + x] = pixel;
+	}
+    }
+    SDL_UnlockSurface(surface);
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
 
     // Render the texture to the window
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
-    // Wait for 5 sec
-    SDL_Delay( 5000 );
+    // Wait for DELAY ms
+    SDL_Delay(DELAY);
 
     SDL_DestroyWindow(window);
     SDL_Quit();
