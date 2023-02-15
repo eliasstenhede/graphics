@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <complex.h>
 
-#define WIDTH 400
+#define WIDTH 900
 #define DELAY 10000
 
 #define DEGREE 3
@@ -48,53 +48,6 @@ static inline complex float newton_iteration(complex float x0, complex float x0i
     }
 }
 
-char* create_pixel_matrix() {
-    // Allocate memory for the matrix
-    char* matrix = calloc(WIDTH * WIDTH * 4, sizeof(char));
-    
-    // Center point of the circle
-    int cx = WIDTH / 2;
-    int cy = WIDTH / 2;
-    
-    // Radius of the circle
-    int r = fmin(WIDTH, WIDTH) / 4;
-    
-    // Initialize the pixels
-    for (int y = 0; y < WIDTH; y++) {
-        for (int x = 0; x < WIDTH; x++) {
-            int i = (y * WIDTH + x) * 4;
-            // Compute the distance from the current pixel to the center of the circle
-            double d = sqrt(pow(x - cx, 2) + pow(y - cy, 2));
-            if (d <= r) {
-                // Inside the circle, set the pixel to red
-                matrix[i] = 255;  // red
-                matrix[i+3] = 255;  // alpha
-            } else {
-                // Outside the circle, set the pixel to black
-                matrix[i+3] = 0;  // alpha
-            }
-	}
-    }
-    
-    return matrix;
-}
-
-char* conv_attr_to_pixel_matrix(char* convergences, char* attractors) {
-    // Allocate memory for the matrix
-    char* matrix = calloc(WIDTH*WIDTH*4, sizeof(char));
-    // Initialize the pixels
-    int i;
-    for (int y = 0; y < WIDTH; y++) {
-        for (int x = 0; x < WIDTH; x++) {
-            i = (y*WIDTH + x)*4;
-	    matrix[i  ] = convergences[i]*5;  // red
-	    //matrix[i+1] = convergences[i]*5;  // red
-	    matrix[i+3] = convergences[i]*5;  	    // alpha
-        }
-    }
-    return matrix;
-}
-
 void calculate(float* x0s, complex float* roots, char* convergences, char* attractors) {
     for (int ix = 0; ix < WIDTH; ix += 1) {
 	for (int jx = 0; jx < WIDTH; jx++) {
@@ -137,53 +90,62 @@ void calculate(float* x0s, complex float* roots, char* convergences, char* attra
     }
 }
 
-Uint32 get_color(SDL_Surface* surface, int conv, int attr) {
+Uint32 get_color(SDL_Surface* surface, char conv, char attr) {
     // Calculate the color based on the inputs
     int r, g, b;
     switch(attr) {
-        case 1:
+        case 0:
 	    r=255;
 	    g=0;
 	    b=0;
-        case 2:
+	    break;
+        case 1:
 	    r=0;
 	    g=255;
 	    b=0;
-        case 3:
+	    break;
+        case 2:
 	    r=0;
 	    g=0;
 	    b=255;
+	    break;
+        case 3:
+	    r=255;
+	    g=255;
+	    b=0;
+	    break;
         case 4:
 	    r=255;
 	    g=0;
-	    b=0;
+	    b=255;
+	    break;
         case 5:
-	    r=255;
-	    g=0;
-	    b=0;
+	    r=0;
+	    g=255;
+	    b=255;
+	    break;
         case 6:
-	    r=255;
-	    g=0;
-	    b=0;
+	    r=128;
+	    g=128;
+	    b=255;
+	    break;
         case 7:
 	    r=255;
-	    g=0;
+	    g=128;
 	    b=0;
+	    break;
         case 8:
 	    r=255;
 	    g=0;
-	    b=0;
-        case 9:
-	    r=255;
-	    g=0;
-	    b=0;
+	    b=128;
+	    break;
         default:
             printf("invalid degree");
             //exit(1);
     }
 
     // Create an SDL color value from the RGB values
-    Uint32 pixel = SDL_MapRGB(surface->format, r*(conv+1)/50, g*(conv+1)/50, b*(conv+1)/50);
+    Uint32 pixel = SDL_MapRGB(surface->format, r*(conv+10)/55, g*(conv+10)/55, b*(conv+10)/55);
     return pixel;
 }
 
@@ -208,8 +170,6 @@ int main (int argc, char** argv) {
     }
 
     calculate(x0s, roots, convergences, attractors);
-    //char* mat = create_pixel_matrix();
-    char* mat = conv_attr_to_pixel_matrix(convergences, attractors);
 
     SDL_Window* window = NULL;
     window = SDL_CreateWindow
@@ -258,7 +218,6 @@ int main (int argc, char** argv) {
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    free(mat);
     free(convergences);
     free(attractors);
     return EXIT_SUCCESS;
