@@ -3,7 +3,8 @@
 #include <stdio.h>
 #include <complex.h>
 
-#define WIDTH 500
+#define WIDTH 400
+#define WINSIZE 800
 #define DELAY 3000
 
 #define DEGREE 3
@@ -14,21 +15,23 @@
 #define ORG_TOL 1e-6f
 
 // perform newton iteration
-static inline complex float newton_iteration(complex float x0, complex float x0i) {
+static inline complex double newton_iteration(complex double x0, complex double x0i) {
     switch(DEGREE) {
-        complex float x1;
-        complex float x2;
+        complex double x1;
+        complex double x2;
         case 1:
              return 1.0f;
         case 2:
              return 1.f/2.f*x0 + 1.f/2.f*x0i;
         case 3:
-             return 2.f/3.f*x0 + 1.f/3.f*x0i*x0i;
+	     return x0 - (0.8f+0.2f*I)*(x0*x0*x0-1.f)/(3.f*x0*x0);
+             //return 2.f/3.f*x0 + 1.f/3.f*x0i*x0i;
         case 4:
              return 3.f/4.f*x0 + 1.f*4.f*x0i*x0i*x0i;
         case 5:
-             x1 = x0i*x0i;
-             return 4.f/5.f*x0 + 1.f/5.f*x1*x1;
+	     return x0 - (1.f+0.8f*I)*(x0*x0*x0*x0*x0-1.f)/(5.f*x0*x0*x0*x0);
+             //x1 = x0i*x0i;
+             //return 4.f/5.f*x0 + 1.f/5.f*x1*x1;
         case 6:
              x1 = x0i*x0i;
              return 5.f/6.f*x0 + 1.f/6.f*x1*x1*x0i;
@@ -49,10 +52,10 @@ static inline complex float newton_iteration(complex float x0, complex float x0i
 }
 
 // Fill convergences and attractors matrices with correct values
-void calculate(float* x0s, complex float* roots, char* convergences, char* attractors) {
+void calculate(float* x0s, float* y0s, complex double* roots, char* convergences, char* attractors) {
     for (int ix = 0; ix < WIDTH; ix += 1) {
 	for (int jx = 0; jx < WIDTH; jx++) {
-	    complex float x0 = x0s[jx] + x0s[ix]*I; 
+	    complex double x0 = x0s[jx] + y0s[ix]*I; 
 	    short number_of_iters, attr = 9; // default corresponds to extra root
 	    for (int conv = 0; conv < MAX_ITER ; ++conv) {
 		float re = creal(x0), im = cimag(x0);
@@ -69,8 +72,8 @@ void calculate(float* x0s, complex float* roots, char* convergences, char* attra
 		    break;
 		} 
 		for (short ind = 0; ind < DEGREE; ++ind) {
-		    complex float root = roots[ind];
-		    complex float diff = x0-root;
+		    complex double root = roots[ind];
+		    complex double diff = x0-root;
 		    float re_diff = creal(diff);
 		    float im_diff = cimag(diff);
 		    if (re_diff*re_diff + im_diff*im_diff  < TOL) {
@@ -82,11 +85,11 @@ void calculate(float* x0s, complex float* roots, char* convergences, char* attra
 		    if (attr != 9) {
 		        break;
 		    }
-		    complex float x0i = (re-im*I) / abs_sq; // z^-1 = conj(z)/|z|^2
+		    complex double x0i = (re-im*I) / abs_sq; // z^-1 = conj(z)/|z|^2
 		    x0 = newton_iteration(x0, x0i);
 	    }
 	    attractors[ix*WIDTH+jx] = attr;
-	    convergences[ix*WIDTH+jx] = number_of_iters < 50 ? number_of_iters : 49;
+	    convergences[ix*WIDTH+jx] = number_of_iters < 50 ? number_of_iters : 50;
 	} 
     }
 }
@@ -96,38 +99,39 @@ Uint32 get_color(SDL_Surface* surface, char conv, char attr) {
     int r, g, b;
     switch(attr) {
         case 0:
-	    r=255;g=0;b=0;
+	    r=101;g=116;b=205;
 	    break;
         case 1:
-	    r=0;g=255;b=0;
+	    r=255;g=128;b=0;
 	    break;
         case 2:
-	    r=0;g=0;b=255;
+	    r=246;g=109;b=155;
 	    break;
         case 3:
-	    r=255;g=255;b=0;
+	    r=52;g=144;b=220;
 	    break;
         case 4:
-	    r=255;g=0;b=255;
+	    r=77;g=192;b=181;
 	    break;
         case 5:
-	    r=0;g=255;b=255;
+	    r=56;g=193;b=114;
 	    break;
         case 6:
-	    r=128;g=128;b=255;
+	    r=255;g=237;b=74;
 	    break;
         case 7:
-	    r=255;g=128;b=0;
+	    r=149;g=97;b=226;
 	    break;
         case 8:
 	    r=255;g=0;b=128;
 	    break;
         default:
             printf("invalid degree");
-            //exit(1);
+            exit(1);
     }
     // Create an SDL color value from the RGB values
-    Uint32 pixel = SDL_MapRGB(surface->format, r*(conv+10)/55, g*(conv+10)/55, b*(conv+10)/55);
+    int darkness_param = 50;
+    Uint32 pixel = SDL_MapRGB(surface->format, r*(conv+1)/darkness_param, g*(conv+1)/darkness_param, b*(conv+1)/darkness_param);
     return pixel;
 }
 
@@ -136,7 +140,7 @@ int main (int argc, char** argv) {
     char* convergences = calloc(WIDTH*WIDTH, sizeof(char));
 
     // precompute all the roots to x^DEGREE = 1
-    complex float* roots = malloc(DEGREE*sizeof(complex float));
+    complex double* roots = malloc(DEGREE*sizeof(complex double));
     for (short n = 0; n < DEGREE; ++n) {
         float theta = 2*PI*n/DEGREE;
         float re = cos(theta);
@@ -152,10 +156,11 @@ int main (int argc, char** argv) {
     (
         "Graphic window!", SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        1000,
-        1000,
+        WINSIZE,
+        WINSIZE,
         SDL_WINDOW_SHOWN
     );
+    SDL_Event event;
 
     // Setup renderer
     SDL_Renderer* renderer = NULL;
@@ -169,27 +174,59 @@ int main (int argc, char** argv) {
     SDL_Surface* surface1 = SDL_CreateRGBSurface(0, WIDTH, WIDTH, 32, 0, 0, 0, 0);
     SDL_LockSurface(surface1);
     
-    float* x0s = malloc(WIDTH*sizeof(float)); // construct x0 matrix 
+    float* x0s = malloc(WIDTH*sizeof(float)); // construct x0 vector 
+    float* y0s = malloc(WIDTH*sizeof(float)); // construct y0 vector 
+    float xstart, xmiddle, xstop, jx;
+    float ystart, ymiddle, ystop, jy;
+    float stepsize;
+    float complex_span = 10.f;
     int xmouse, ymouse;
-    float xstart, xstop;
-    for (int ix = 0; ix < 20; ix++){
-        Uint32 mouse_state = SDL_GetMouseState(&xmouse, &ymouse);
-	if (SDL_PointInRect(&(SDL_Point){xmouse, ymouse}, &(SDL_Rect){1, 1, WIDTH, WIDTH})) {
-	    xstart = -xmouse*(20-ix)/20.f;
-	    xstop = -xmouse*(20-ix)/20.f;
-        } else {
-	    xstart = -2.f*(20-ix)/20.f;
-	    xstop = 2.f*(20-ix)/20.f;
+    int extra_zoom = 0;
+    while (1) {
+	//Check if user is trying to close the window?
+	while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+                case SDL_QUIT:
+                    SDL_DestroyWindow(window);
+                    SDL_Quit();
+                    return 0;
+                    break;
+		case SDL_MOUSEBUTTONDOWN:
+		    if (event.button.button == SDL_BUTTON_LEFT) {
+                        extra_zoom = 1;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+	// Get position of cursor
+	SDL_PumpEvents();
+        SDL_GetMouseState(&xmouse, &ymouse);
+        
+	// Calculate the surface with the cursor as middle point and zoom one step
+	complex_span *= 0.99;
+	if (extra_zoom) {
+	    complex_span *= 0.8;
+	    extra_zoom = 0;
 	}
-        // Choose grid size
+	xmiddle = x0s[xmouse*WIDTH/WINSIZE]/1.2f;
+	ymiddle = y0s[ymouse*WIDTH/WINSIZE]/1.2f;
+	xstart = xmiddle - complex_span/2.f;
+	xstop  = xmiddle + complex_span/2.f;
+	ystart = ymiddle - complex_span/2.f;
+	ystop  = ymiddle + complex_span/2.f;
 	// Fill the array with equidistant points
-        float jx = xstart + xstop / (float) WIDTH;
-        float step = (xstop-xstart) / (float) WIDTH;
+        jx = xstart + xstop/(float)WIDTH;
+        jy = ystart + ystop/(float)WIDTH;
+        stepsize = complex_span/(float)WIDTH;
 	for (int ix = 0; ix < WIDTH; ++ix) {
 	    x0s[ix] = jx;
-	    jx += step;
+	    y0s[ix] = jy;
+	    jx += stepsize;
+	    jy += stepsize;
 	}
-	calculate(x0s, roots, convergences, attractors);
+	calculate(x0s, y0s, roots, convergences, attractors);
         for (int y = 0; y < WIDTH; y++) {
 	    for (int x = 0; x < WIDTH; x++) {
 	        // Set pixel values for the original surface
@@ -206,11 +243,14 @@ int main (int argc, char** argv) {
         SDL_RenderPresent(renderer);
     }
     // Wait for DELAY ms
-    SDL_Delay(DELAY);
+    // SDL_Delay(DELAY);
 
     SDL_DestroyWindow(window);
     SDL_Quit();
 
+    free(x0s);
+    free(y0s);
+    free(roots);
     free(convergences);
     free(attractors);
     return EXIT_SUCCESS;
