@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <complex.h>
 
-#define WIDTH 900
-#define DELAY 10000
+#define WIDTH 500
+#define DELAY 3000
 
 #define DEGREE 3
 #define PI 3.14159265358
@@ -13,7 +13,7 @@
 #define ABS_TOL 1e20f
 #define ORG_TOL 1e-6f
 
-// perform newton iteration until root is found
+// perform newton iteration
 static inline complex float newton_iteration(complex float x0, complex float x0i) {
     switch(DEGREE) {
         complex float x1;
@@ -48,6 +48,7 @@ static inline complex float newton_iteration(complex float x0, complex float x0i
     }
 }
 
+// Fill convergences and attractors matrices with correct values
 void calculate(float* x0s, complex float* roots, char* convergences, char* attractors) {
     for (int ix = 0; ix < WIDTH; ix += 1) {
 	for (int jx = 0; jx < WIDTH; jx++) {
@@ -90,60 +91,41 @@ void calculate(float* x0s, complex float* roots, char* convergences, char* attra
     }
 }
 
+// Decide what color a pixel should have given its root and number of iterations needed to reach it
 Uint32 get_color(SDL_Surface* surface, char conv, char attr) {
-    // Calculate the color based on the inputs
     int r, g, b;
     switch(attr) {
         case 0:
-	    r=255;
-	    g=0;
-	    b=0;
+	    r=255;g=0;b=0;
 	    break;
         case 1:
-	    r=0;
-	    g=255;
-	    b=0;
+	    r=0;g=255;b=0;
 	    break;
         case 2:
-	    r=0;
-	    g=0;
-	    b=255;
+	    r=0;g=0;b=255;
 	    break;
         case 3:
-	    r=255;
-	    g=255;
-	    b=0;
+	    r=255;g=255;b=0;
 	    break;
         case 4:
-	    r=255;
-	    g=0;
-	    b=255;
+	    r=255;g=0;b=255;
 	    break;
         case 5:
-	    r=0;
-	    g=255;
-	    b=255;
+	    r=0;g=255;b=255;
 	    break;
         case 6:
-	    r=128;
-	    g=128;
-	    b=255;
+	    r=128;g=128;b=255;
 	    break;
         case 7:
-	    r=255;
-	    g=128;
-	    b=0;
+	    r=255;g=128;b=0;
 	    break;
         case 8:
-	    r=255;
-	    g=0;
-	    b=128;
+	    r=255;g=0;b=128;
 	    break;
         default:
             printf("invalid degree");
             //exit(1);
     }
-
     // Create an SDL color value from the RGB values
     Uint32 pixel = SDL_MapRGB(surface->format, r*(conv+10)/55, g*(conv+10)/55, b*(conv+10)/55);
     return pixel;
@@ -153,13 +135,6 @@ int main (int argc, char** argv) {
     char* attractors = calloc(WIDTH*WIDTH, sizeof(char));
     char* convergences = calloc(WIDTH*WIDTH, sizeof(char));
 
-    float* x0s = malloc(WIDTH*sizeof(float)); // construct x0 matrix 
-    float jx = -2.f + 2.f / (float) WIDTH;
-    float step = 4.f / (float) WIDTH;
-    for (int ix = 0; ix < WIDTH; ++ix) {
-       x0s[ix] = jx;
-       jx += step;
-    }
     // precompute all the roots to x^DEGREE = 1
     complex float* roots = malloc(DEGREE*sizeof(complex float));
     for (short n = 0; n < DEGREE; ++n) {
@@ -169,15 +144,16 @@ int main (int argc, char** argv) {
         roots[n] = re + im*I;
     }
 
-    calculate(x0s, roots, convergences, attractors);
-
-    SDL_Window* window = NULL;
-    window = SDL_CreateWindow
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("Initialization error\n");
+	exit(1);
+    }
+    SDL_Window * window = SDL_CreateWindow
     (
         "Graphic window!", SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        800,
-        800,
+        1000,
+        1000,
         SDL_WINDOW_SHOWN
     );
 
@@ -190,28 +166,45 @@ int main (int argc, char** argv) {
 
     // Clear winow
     SDL_RenderClear( renderer );
-
-    SDL_Surface* surface = SDL_CreateRGBSurface(0, WIDTH, WIDTH, 32, 0, 0, 0, 0);
-
-    SDL_LockSurface(surface);
-    for (int y = 0; y < WIDTH; y++) {
-	for (int x = 0; x < WIDTH; x++) {
-	    // Get the value from the "convergences" matrix
-	    int conv = convergences[y * WIDTH + x];
-	    int attr = attractors[y * WIDTH + x];
-
-            // Set the pixel color based on the value
-	    //Uint32 pixel = SDL_MapRGB(surface->format, value * 5, value * 5, value * 5);
-	    Uint32 pixel = get_color(surface, conv, attr);
-	    ((Uint32*)surface->pixels)[y * WIDTH + x] = pixel;
+    SDL_Surface* surface1 = SDL_CreateRGBSurface(0, WIDTH, WIDTH, 32, 0, 0, 0, 0);
+    SDL_LockSurface(surface1);
+    
+    float* x0s = malloc(WIDTH*sizeof(float)); // construct x0 matrix 
+    int xmouse, ymouse;
+    float xstart, xstop;
+    for (int ix = 0; ix < 20; ix++){
+        Uint32 mouse_state = SDL_GetMouseState(&xmouse, &ymouse);
+	if (SDL_PointInRect(&(SDL_Point){xmouse, ymouse}, &(SDL_Rect){1, 1, WIDTH, WIDTH})) {
+	    xstart = -xmouse*(20-ix)/20.f;
+	    xstop = -xmouse*(20-ix)/20.f;
+        } else {
+	    xstart = -2.f*(20-ix)/20.f;
+	    xstop = 2.f*(20-ix)/20.f;
 	}
+        // Choose grid size
+	// Fill the array with equidistant points
+        float jx = xstart + xstop / (float) WIDTH;
+        float step = (xstop-xstart) / (float) WIDTH;
+	for (int ix = 0; ix < WIDTH; ++ix) {
+	    x0s[ix] = jx;
+	    jx += step;
+	}
+	calculate(x0s, roots, convergences, attractors);
+        for (int y = 0; y < WIDTH; y++) {
+	    for (int x = 0; x < WIDTH; x++) {
+	        // Set pixel values for the original surface
+		int ix1 = y*WIDTH+x;
+	        int conv = convergences[ix1];
+	        int attr = attractors[ix1];
+	        Uint32 pixel = get_color(surface1, conv, attr);
+	        ((Uint32*)surface1->pixels)[ix1] = pixel;
+	    }
+        }
+	SDL_UnlockSurface(surface1);
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface1);
+        SDL_RenderCopy(renderer, texture, NULL, NULL);
+        SDL_RenderPresent(renderer);
     }
-    SDL_UnlockSurface(surface);
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-
-    // Render the texture to the window
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
-    SDL_RenderPresent(renderer);
     // Wait for DELAY ms
     SDL_Delay(DELAY);
 
