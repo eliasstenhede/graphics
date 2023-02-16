@@ -7,7 +7,7 @@
 #define WINSIZE 800
 #define DELAY 3000
 
-#define DEGREE 3
+#define DEGREE 6
 #define PI 3.14159265358
 #define MAX_ITER 1000
 #define TOL 1e-6
@@ -15,36 +15,43 @@
 #define ORG_TOL 1e-6f
 
 // perform newton iteration
-static inline complex double newton_iteration(complex double x0, complex double x0i) {
+static inline complex double newton_iteration(complex double x0, complex double x0i, complex double alpha) {
     switch(DEGREE) {
         complex double x1;
         complex double x2;
         case 1:
              return 1.0f;
         case 2:
-             return 1.f/2.f*x0 + 1.f/2.f*x0i;
+	     return x0 - alpha*(x0-1.f)*x0i/2.f;
+             //return 1.f/2.f*x0 + 1.f/2.f*x0i;
         case 3:
-	     return x0 - (0.8f+0.2f*I)*(x0*x0*x0-1.f)/(3.f*x0*x0);
+	     return x0 - alpha*(x0*x0*x0-1.f)/(3.f*x0*x0);
              //return 2.f/3.f*x0 + 1.f/3.f*x0i*x0i;
         case 4:
-             return 3.f/4.f*x0 + 1.f*4.f*x0i*x0i*x0i;
+             return x0 - alpha*(x0*x0*x0*x0-1.f)*x0i*x0i*x0i/4.f;
+	     //return 3.f/4.f*x0 + 1.f*4.f*x0i*x0i*x0i;
         case 5:
-	     return x0 - (1.f+0.8f*I)*(x0*x0*x0*x0*x0-1.f)/(5.f*x0*x0*x0*x0);
+	     return x0 - alpha*(x0*x0*x0*x0*x0-1.f)*x0i*x0i*x0i*x0i/5.f;
              //x1 = x0i*x0i;
              //return 4.f/5.f*x0 + 1.f/5.f*x1*x1;
         case 6:
-             x1 = x0i*x0i;
-             return 5.f/6.f*x0 + 1.f/6.f*x1*x1*x0i;
+	     return x0 - alpha*(x0*x0*x0*x0*x0*x0-1.f)*x0i*x0i*x0i*x0i*x0i/6.f;
+             //x1 = x0i*x0i;
+             //return 5.f/6.f*x0 + 1.f/6.f*x1*x1*x0i;
         case 7:
-             x1 = x0i*x0i;
-             return 6.f/7.f*x0 + 1.f/7.f*x1*x1*x1;
+	     return x0 - alpha*(x0*x0*x0*x0*x0*x0*x0-1.f)*x0i*x0i*x0i*x0i*x0i*x0i/7.f;
+             //x1 = x0i*x0i;
+             //return 6.f/7.f*x0 + 1.f/7.f*x1*x1*x1;
         case 8:
-             x1 = x0i*x0i;
-             return 7.f/8.f*x0 + 1.f/8.f*x1*x1*x1*x0i;
+	     return x0 - alpha*(x0*x0*x0*x0*x0*x0*x0*x0-1.f)*x0i*x0i*x0i*x0i*x0i*x0i*x0i/8.f;
+             //x1 = x0i*x0i;
+             //return 7.f/8.f*x0 + 1.f/8.f*x1*x1*x1*x0i;
         case 9:
-             x1 = x0i*x0i;
-             x2 = x1*x1;
-             return 8.f/9.f*x0 + 1.f/9.f*x2*x2;
+	     return x0 - alpha*(x0*x0*x0*x0*x0*x0*x0*x0*x0-1.f)*x0i*x0i*x0i*x0i*x0i*x0i*x0i*x0i/9.f;
+	     //return x0 - alpha*(x0*x0*x0*x0*x0*x0*x0*-1.f)*x0i*x0i*x0i*x0i*x0i*x0i/7.f;
+             //x1 = x0i*x0i;
+             //x2 = x1*x1;
+             //return 8.f/9.f*x0 + 1.f/9.f*x2*x2;
         default:
             printf("invalid degree");
             exit(1);
@@ -56,7 +63,8 @@ void calculate(float* x0s, float* y0s, complex double* roots, char* convergences
     for (int ix = 0; ix < WIDTH; ix += 1) {
 	for (int jx = 0; jx < WIDTH; jx++) {
 	    complex double x0 = x0s[jx] + y0s[ix]*I; 
-	    short number_of_iters, attr = 9; // default corresponds to extra root
+	    short number_of_iters = 0;
+	    short attr = 9; // default corresponds to extra root
 	    for (int conv = 0; conv < MAX_ITER ; ++conv) {
 		float re = creal(x0), im = cimag(x0);
 		float re_sq = re*re, im_sq = im*im;
@@ -86,7 +94,8 @@ void calculate(float* x0s, float* y0s, complex double* roots, char* convergences
 		        break;
 		    }
 		    complex double x0i = (re-im*I) / abs_sq; // z^-1 = conj(z)/|z|^2
-		    x0 = newton_iteration(x0, x0i);
+		    complex double alpha = 0.9 + 0.4*I;
+		    x0 = newton_iteration(x0, x0i, alpha);
 	    }
 	    attractors[ix*WIDTH+jx] = attr;
 	    convergences[ix*WIDTH+jx] = number_of_iters < 50 ? number_of_iters : 50;
@@ -205,7 +214,7 @@ int main (int argc, char** argv) {
         SDL_GetMouseState(&xmouse, &ymouse);
         
 	// Calculate the surface with the cursor as middle point and zoom one step
-	complex_span *= 0.99;
+	complex_span *= 0.995;
 	if (extra_zoom) {
 	    complex_span *= 0.8;
 	    extra_zoom = 0;
